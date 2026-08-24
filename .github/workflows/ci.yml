@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile
+        run: python -m py_compile privscope.py
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Validate JSON smoke report
+        run: |
+          python privscope.py \
+            --checks context,path,kernel \
+            --format json \
+            --output privscope-report.json \
+            --fail-on never
+          python -m json.tool privscope-report.json >/dev/null
+
+      - name: Validate HTML smoke report
+        run: |
+          python privscope.py \
+            --checks context,path,kernel \
+            --format html \
+            --output privscope-report.html \
+            --fail-on never
+          test -s privscope-report.html
